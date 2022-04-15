@@ -1,0 +1,62 @@
+trigger:
+- main
+
+pool:
+  vmImage: windows-2022
+
+variables:
+  - group: azuredevops-keys #input the group name of sshkey library
+  - name: terraform_version
+    value:  0.15.5
+  - name: backend_aws_service
+    value: tf-User  # service connection name for aws service connection.
+  - name: tf_plan_out_file_name
+    value: plan
+  - name: tf_artifact_name
+    value: Terraform
+
+stages:
+  - stage: Terraform_Deployment
+    displayName: Terraform Deployment
+    jobs:
+      - job: Terraform_deploy
+        steps:
+          - task: InstallSSHKey@0
+            inputs:
+              knownHostsEntry: '$(azuredevops-host)' # (ssh-keyscan -H -t rsa vs-ssh.visualstudio.com is used to generate one time figerprint) under variables of agali-keys group.
+              sshPublicKey: '$(azuredevops-pub-key)'  #input the varilable of pub sshkey under the group name of sshkey library.
+              sshKeySecureFile: 'azuredevops-keys' # name of the securefile uploaded.
+
+          - task: Bash@3
+            displayName: 'Check Variables and SSH Connection'
+            inputs:
+              targetType: 'inline'
+              script: |
+                ssh -T ADDNAMEHERE@vs-ssh.visualstudio.com
+                echo $(System.DefaultWorkingDirectory)
+
+          - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+            displayName: 'Install Terraform ${{ variables.terraform_version }}'
+            inputs:
+              terraformVersion: '$(terraform_version)'
+
+          - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+            displayName: 'Terraform Init'
+            inputs:
+              command: init
+              workingDirectory: '$(System.DefaultWorkingDirectory)'
+              backendType: aws
+              allowTelemetryCollection: false
+              backendServiceAws: '$(backend_aws_service)'
+              providerServiceAws: '$(backend_aws_service)'
+              providerAwsRegion: '$(provider_aws_region_default)'
+
+          - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+            displayName: 'Terraform Deploy'
+            inputs:
+              command: apply
+              workingDirectory: '$(System.DefaultWorkingDirectory)'
+              allowTelemetryCollection: false
+              backendServiceAws: '$(backend_aws_service)'
+              providerServiceAws: '$(backend_aws_service)'
+              providerAwsRegion: '$(provider_aws_region_default)'
