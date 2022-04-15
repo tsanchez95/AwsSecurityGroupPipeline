@@ -1,0 +1,2 @@
+sgrule_id,sg_id,type,protocol,from,to,cidr_blocks,comment
+1,sg-IDHERE,ingress,tcp,0000,0000,IP/cidrHERE,
